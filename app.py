@@ -5,12 +5,11 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# --- SMART CONFIGURATION ---
-# 1. API KEY: Looks for Render environment variable first, falls back to your string for local.
+# --- CONFIGURATION ---
+# API KEY: Uses Render's Environment Variable if set, else uses your string locally.
 API_KEY = os.environ.get("API_KEY", "a6fedd1327msh189f345487b21e0p195c04jsn184073405e8b")
 API_HOST = "deep-translate1.p.rapidapi.com"
 
-# Supported languages
 LANGUAGES = {
     "en": "English", "es": "Spanish", "fr": "French", "de": "German",
     "sw": "Swahili", "it": "Italian", "pt": "Portuguese", "ja": "Japanese",
@@ -54,8 +53,12 @@ def translate():
         res = conn.getresponse()
         result = json.loads(res.read().decode("utf-8"))
 
-        # Extract nested translation text
+        # Deep Translate API returns a list under translatedText
         translated_text = result['data']['translations']['translatedText']
+        
+        # If the API returns a list, take the first element
+        if isinstance(translated_text, list):
+            translated_text = translated_text[0]
 
         if tgt == "ar":
             translated_text = arabic_to_latin(translated_text)
@@ -73,9 +76,10 @@ def translate():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    # --- ENVIRONMENT DETECTION ---
-    # If 'PORT' exists (Render), use it. Otherwise (Local), use 5000.
-    port = int(os.environ.get("PORT", 5000))
-    # Local: debug=True helps you see errors. 
-    # Prod: host='0.0.0.0' is required for Render to see the app.
+    # --- RENDER PORT LOGIC ---
+    # Render defaults to 10000. This line checks for an assigned PORT, 
+    # then defaults to 10000, then falls back to 5000 for local dev if needed.
+    port = int(os.environ.get("PORT", 10000))
+    
+    # Running on 0.0.0.0 is mandatory for Render to route traffic to your app
     app.run(host='0.0.0.0', port=port, debug=(os.environ.get("PORT") is None))
